@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAISO / PACE Weather Deviation Dashboard — Lehi City Power</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:    #0f1923;
+    --navy2:   #1a2733;
+    --navy3:   #243344;
+    --steel:   #3d5166;
+    --muted:   #7a9ab5;
+    --text:    #e8f0f7;
+    --text2:   #a8bfcf;
+    --accent:  #f0a500;
+    --today:   #e87820;
+    --green:   #2ecc71;
+
+    --c-15: #1a5276; --f-15: #ffffff;
+    --c-10: #2980b9; --f-10: #ffffff;
+    --c-5:  #aed6f1; --f-5:  #0f1923;
+    --c-3:  #d6eaf8; --f-3:  #0f1923;
+    --c-0:  #243344; --f-0:  #e8f0f7;
+    --cp3:  #fadbd8; --fp3:  #0f1923;
+    --cp5:  #f1948a; --fp5:  #0f1923;
+    --cp8:  #e74c3c; --fp8:  #ffffff;
+    --cp15: #922b21; --fp15: #ffffff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--navy);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    background: var(--navy2);
+    border-bottom: 2px solid var(--accent);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .header-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--text);
+  }
+  .header-title span { color: var(--accent); }
+  .header-meta {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .header-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .btn {
+    background: var(--accent);
+    color: var(--navy);
+    border: none;
+    padding: 7px 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: background 0.15s, transform 0.1s;
+    border-radius: 2px;
+  }
+  .btn:hover { background: #ffc53d; transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn:disabled { background: var(--steel); color: var(--muted); cursor: not-allowed; transform: none; }
+
+  .toggle-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .toggle {
+    display: flex;
+    background: var(--navy3);
+    border: 1px solid var(--steel);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .toggle button {
+    background: none;
+    border: none;
+    padding: 5px 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .toggle button.active {
+    background: var(--accent);
+    color: var(--navy);
+  }
+
+  /* ── LEGEND ── */
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 8px 20px;
+    background: var(--navy2);
+    border-bottom: 1px solid var(--navy3);
+    flex-wrap: wrap;
+  }
+  .legend-label {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    margin-right: 6px;
+    white-space: nowrap;
+  }
+  .legend-item {
+    padding: 2px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    font-family: 'IBM Plex Mono', monospace;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  /* ── TABLE WRAPPER ── */
+  .table-wrap {
+    overflow-x: auto;
+    padding: 16px 20px 30px;
+  }
+
+  table {
+    border-collapse: collapse;
+    min-width: 100%;
+    table-layout: fixed;
+  }
+
+  /* ── PERIOD LABEL ROW ── */
+  .period-row td {
+    font-size: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--muted);
+    padding: 2px 4px;
+    border: none;
+    background: transparent;
+    letter-spacing: 0.05em;
+  }
+  .period-row .lbl-past   { color: #6b8fa8; }
+  .period-row .lbl-future { color: #4a7a9b; }
+  .period-row .lbl-norm   { color: #2e7d52; }
+
+  /* ── DATE HEADER ROWS ── */
+  .date-row th, .day-row th {
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    padding: 5px 2px;
+    border: 1px solid #1e3045;
+    white-space: nowrap;
+    min-width: 68px;
+    width: 68px;
+  }
+  .date-row .city-hdr { min-width: 160px; width: 160px; text-align: left; padding-left: 10px; }
+  .day-row  .city-hdr { min-width: 160px; width: 160px; text-align: left; padding-left: 10px; }
+
+  th.past-hdr   { background: #2a3f52; color: var(--text2); font-size: 11px; }
+  th.today-hdr  { background: var(--today); color: #fff; font-size: 11px; }
+  th.future-hdr { background: var(--navy3); color: var(--text2); font-size: 11px; }
+  th.norm-hdr   { background: #1a4a32; color: #5dbd8a; font-size: 11px; min-width: 74px; width: 74px; }
+  th.city-hdr   { background: #0f1923; color: var(--muted); font-size: 10px; font-weight: 400; letter-spacing: 0.08em; text-transform: uppercase; }
+
+  /* ── DATA ROWS ── */
+  td.city-cell {
+    font-weight: 600;
+    font-size: 12px;
+    padding: 6px 10px;
+    border: 1px solid #1e3045;
+    background: var(--navy2);
+    white-space: nowrap;
+    position: sticky;
+    left: 0;
+    z-index: 2;
+  }
+  td.city-cell .market {
+    font-size: 9px;
+    color: var(--muted);
+    font-weight: 400;
+    font-family: 'IBM Plex Mono', monospace;
+    margin-left: 5px;
+  }
+
+  td.temp-cell {
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 4px;
+    border: 1px solid rgba(255,255,255,0.05);
+    cursor: default;
+    transition: filter 0.1s;
+    min-width: 68px;
+  }
+  td.temp-cell:hover { filter: brightness(1.15); }
+  td.temp-cell.empty {
+    color: #3a5068;
+    font-size: 11px;
+    background: var(--navy2);
+  }
+  td.temp-cell.today-cell {
+    border-left:  2px solid var(--today);
+    border-right: 2px solid var(--today);
+  }
+
+  td.norm-cell {
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 4px;
+    border: 1px solid #1a4a32;
+    background: #0f2b1e;
+    color: #5dbd8a;
+    min-width: 74px;
+  }
+
+  tr:hover td.city-cell  { background: #1e3245; }
+  tr:hover td.temp-cell  { filter: brightness(1.1); }
+
+  /* ── PRICE ROW ── */
+  tr.price-row td {
+    background: #111e2a;
+    color: var(--muted);
+    font-size: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    padding: 5px 6px;
+    border: 1px solid #1e3045;
+    text-align: center;
+  }
+  tr.price-row td:first-child { text-align: left; padding-left: 10px; }
+
+  /* ── STATUS / SPINNER ── */
+  .status-bar {
+    padding: 6px 20px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 28px;
+  }
+  .spinner {
+    width: 12px; height: 12px;
+    border: 2px solid var(--steel);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+  .spinner.active { display: block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .divider-col { width: 8px; min-width: 8px; background: var(--navy); border: none !important; }
+
+  /* ── TOOLTIP ── */
+  .tooltip {
+    position: fixed;
+    background: #0d1a26;
+    border: 1px solid var(--steel);
+    padding: 8px 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text);
+    pointer-events: none;
+    z-index: 100;
+    display: none;
+    border-radius: 3px;
+    line-height: 1.7;
+  }
+
+  @media (max-width: 768px) {
+    .header { padding: 10px 12px; }
+    .header-title { font-size: 13px; }
+    .table-wrap { padding: 10px 8px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header-title">CAISO / PACE &nbsp;<span>Weather Deviation</span>&nbsp; Dashboard</div>
+    <div class="header-meta">Lehi City Power Department</div>
+  </div>
+  <div class="header-controls">
+    <div class="toggle-wrap">
+      <span>Baseline:</span>
+      <div class="toggle">
+        <button id="btn30" class="active" onclick="setBaseline('30yr')">30-yr</button>
+        <button id="btn10"               onclick="setBaseline('10yr')">10-yr</button>
+      </div>
+    </div>
+    <button class="btn" id="refreshBtn" onclick="loadData()">⟳ Refresh</button>
+  </div>
+</div>
+
+<div class="legend">
+  <span class="legend-label">Deviation from Normal High →</span>
+  <span class="legend-item" style="background:#1a5276;color:#fff">≤-15°F</span>
+  <span class="legend-item" style="background:#2980b9;color:#fff">-10°F</span>
+  <span class="legend-item" style="background:#aed6f1;color:#0f1923">-5°F</span>
+  <span class="legend-item" style="background:#d6eaf8;color:#0f1923">-3°F</span>
+  <span class="legend-item" style="background:#3d5166;color:#e8f0f7">0°F</span>
+  <span class="legend-item" style="background:#fadbd8;color:#0f1923">+3°F</span>
+  <span class="legend-item" style="background:#f1948a;color:#0f1923">+5°F</span>
+  <span class="legend-item" style="background:#e74c3c;color:#fff">+8°F</span>
+  <span class="legend-item" style="background:#922b21;color:#fff">≥+15°F</span>
+</div>
+
+<div class="status-bar">
+  <div class="spinner" id="spinner"></div>
+  <span id="statusMsg">Loading weather data…</span>
+</div>
+
+<div class="table-wrap">
+  <table id="mainTable"></table>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// CITY DATA
+// ══════════════════════════════════════════════════════════════
+const CITIES = [
+  { name:"Lehi City",      state:"UT", lat:40.3916,  lon:-111.8508, market:"PACE" },
+  { name:"Blythe",         state:"CA", lat:33.6103,  lon:-114.5961, market:"CAISO" },
+  { name:"San Diego",      state:"CA", lat:32.7157,  lon:-117.1611, market:"CAISO" },
+  { name:"Riverside",      state:"CA", lat:33.9533,  lon:-117.3962, market:"CAISO" },
+  { name:"Ontario",        state:"CA", lat:34.0633,  lon:-117.6509, market:"CAISO" },
+  { name:"Los Angeles",    state:"CA", lat:34.0522,  lon:-118.2437, market:"CAISO" },
+  { name:"Burbank",        state:"CA", lat:34.1808,  lon:-118.3090, market:"CAISO" },
+  { name:"Bakersfield",    state:"CA", lat:35.3733,  lon:-119.0187, market:"CAISO" },
+  { name:"Fresno",         state:"CA", lat:36.7378,  lon:-119.7871, market:"CAISO" },
+  { name:"Stockton",       state:"CA", lat:37.9577,  lon:-121.2908, market:"CAISO" },
+  { name:"Sacramento",     state:"CA", lat:38.5816,  lon:-121.4944, market:"CAISO" },
+  { name:"San Jose",       state:"CA", lat:37.3382,  lon:-121.8863, market:"CAISO" },
+  { name:"Red Bluff",      state:"CA", lat:40.1785,  lon:-122.2358, market:"CAISO" },
+  { name:"Oakland",        state:"CA", lat:37.8044,  lon:-122.2712, market:"CAISO" },
+  { name:"San Francisco",  state:"CA", lat:37.7749,  lon:-122.4194, market:"CAISO" },
+  { name:"Las Vegas",      state:"NV", lat:36.1699,  lon:-115.1398, market:"PACE"  },
+  { name:"Phoenix",        state:"AZ", lat:33.4484,  lon:-112.0740, market:"PACE"  },
+  { name:"Salt Lake City", state:"UT", lat:40.7608,  lon:-111.8910, market:"PACE"  },
+  { name:"Boise",          state:"ID", lat:43.6150,  lon:-116.2023, market:"PACE"  },
+];
+
+// ══════════════════════════════════════════════════════════════
+// NOAA 30-YR NORMALS (1991-2020)  [High, Low] Jan–Dec
+// ══════════════════════════════════════════════════════════════
+const NOAA = {
+  "Lehi City_UT":      [[38,21],[44,25],[54,32],[63,39],[73,47],[83,56],[93,63],[91,62],[80,52],[66,40],[50,30],[38,22]],
+  "Blythe_CA":         [[67,43],[73,48],[81,54],[90,62],[100,70],[110,79],[115,85],[113,83],[105,76],[93,64],[77,50],[66,43]],
+  "San Diego_CA":      [[65,49],[66,51],[67,53],[69,56],[71,60],[74,63],[77,66],[78,67],[77,65],[75,61],[70,55],[65,49]],
+  "Riverside_CA":      [[68,42],[71,45],[75,48],[81,52],[88,57],[95,63],[101,68],[100,68],[96,64],[87,56],[76,47],[67,41]],
+  "Ontario_CA":        [[68,43],[71,46],[75,49],[81,53],[87,58],[94,64],[100,69],[100,69],[96,65],[87,56],[76,48],[67,42]],
+  "Los Angeles_CA":    [[68,48],[69,50],[70,52],[73,55],[75,59],[79,63],[84,67],[85,68],[83,66],[79,61],[73,54],[68,48]],
+  "Burbank_CA":        [[67,45],[69,47],[72,50],[77,53],[82,57],[88,62],[95,67],[95,68],[91,65],[83,58],[74,50],[67,44]],
+  "Bakersfield_CA":    [[57,37],[64,42],[71,47],[80,53],[89,61],[99,70],[105,76],[103,74],[96,67],[83,55],[68,43],[57,36]],
+  "Fresno_CA":         [[55,38],[62,43],[69,47],[77,53],[86,61],[95,69],[101,75],[99,73],[92,66],[79,55],[64,43],[54,37]],
+  "Stockton_CA":       [[55,38],[62,42],[68,46],[75,51],[83,57],[91,64],[97,68],[95,67],[89,62],[77,53],[63,43],[54,37]],
+  "Sacramento_CA":     [[54,38],[61,42],[67,45],[74,49],[83,56],[91,63],[97,67],[95,66],[89,61],[76,52],[62,43],[53,37]],
+  "San Jose_CA":       [[58,41],[63,44],[67,46],[72,49],[78,54],[84,59],[90,63],[89,63],[85,60],[76,55],[65,46],[57,40]],
+  "Red Bluff_CA":      [[54,35],[62,39],[68,43],[76,48],[85,55],[95,63],[103,69],[101,68],[93,61],[79,50],[63,39],[53,34]],
+  "Oakland_CA":        [[57,44],[60,46],[63,48],[65,50],[68,53],[71,56],[72,58],[72,59],[72,57],[68,53],[62,48],[57,43]],
+  "San Francisco_CA":  [[57,46],[60,48],[62,49],[63,51],[64,53],[65,55],[65,56],[66,57],[68,57],[67,55],[62,50],[57,46]],
+  "Las Vegas_NV":      [[57,37],[63,42],[71,48],[80,56],[90,65],[100,75],[105,81],[103,79],[94,70],[81,57],[66,45],[56,36]],
+  "Phoenix_AZ":        [[67,44],[72,47],[80,53],[89,61],[99,70],[108,79],[106,84],[104,83],[98,76],[87,63],[75,51],[66,44]],
+  "Salt Lake City_UT": [[38,23],[44,27],[54,34],[63,41],[73,50],[84,59],[94,67],[91,65],[80,54],[66,43],[49,31],[37,23]],
+  "Boise_ID":          [[37,25],[45,30],[55,35],[63,40],[72,47],[82,56],[92,64],[91,63],[79,53],[64,42],[48,32],[37,24]],
+};
+
+// ══════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════
+let baseline   = '30yr';
+let weatherData = {};    // { cityKey: { dateStr: [hi, lo] } }
+let normals10  = {};     // { cityKey: [[h,l]*12] }
+let lastRefresh = null;
+
+// ══════════════════════════════════════════════════════════════
+// BASELINE TOGGLE
+// ══════════════════════════════════════════════════════════════
+function setBaseline(b) {
+  baseline = b;
+  document.getElementById('btn30').classList.toggle('active', b === '30yr');
+  document.getElementById('btn10').classList.toggle('active', b === '10yr');
+  renderTable();
+}
+
+// ══════════════════════════════════════════════════════════════
+// DATE HELPERS
+// ══════════════════════════════════════════════════════════════
+function localToday() {
+  const d = new Date();
+  return d.toLocaleDateString('en-CA');  // YYYY-MM-DD
+}
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toLocaleDateString('en-CA');
+}
+function fmtDate(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+}
+function fmtDay(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { weekday:'short' });
+}
+function getMonth(dateStr) { return parseInt(dateStr.slice(5,7)) - 1; }
+
+function getDateRange() {
+  const today = localToday();
+  const dates = [];
+  for (let i = -7; i <= 10; i++) dates.push(addDays(today, i));
+  return { today, dates };
+}
+
+// ══════════════════════════════════════════════════════════════
+// COLOR LOGIC
+// ══════════════════════════════════════════════════════════════
+function devColor(dev) {
+  if (dev <= -15) return { bg:'#1a5276', fg:'#ffffff' };
+  if (dev <= -10) return { bg:'#2980b9', fg:'#ffffff' };
+  if (dev <=  -5) return { bg:'#aed6f1', fg:'#0f1923' };
+  if (dev <=  -3) return { bg:'#d6eaf8', fg:'#0f1923' };
+  if (dev <    3) return { bg:'#3d5166', fg:'#e8f0f7' };
+  if (dev <    5) return { bg:'#fadbd8', fg:'#0f1923' };
+  if (dev <    8) return { bg:'#f1948a', fg:'#0f1923' };
+  if (dev <   15) return { bg:'#e74c3c', fg:'#ffffff' };
+                  return { bg:'#922b21', fg:'#ffffff' };
+}
+
+// ══════════════════════════════════════════════════════════════
+// API FETCH
+// ══════════════════════════════════════════════════════════════
+async function fetchWeather(city) {
+  const today = localToday();
+  const past  = addDays(today, -7);
+  const key   = `${city.name}_${city.state}`;
+  const result = {};
+
+  // Archive API — past 7 days (actual observations)
+  try {
+    const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${city.lat}&longitude=${city.lon}&start_date=${past}&end_date=${today}&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=auto`;
+    const r = await fetch(url);
+    const d = await r.json();
+    if (d.daily) {
+      d.daily.time.forEach((dt, i) => {
+        if (d.daily.temperature_2m_max[i] != null)
+          result[dt] = [Math.round(d.daily.temperature_2m_max[i]), Math.round(d.daily.temperature_2m_min[i])];
+      });
+    }
+  } catch(e) { console.warn('Archive error', city.name, e); }
+
+  // Forecast API — today + 10 days
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=auto&forecast_days=11`;
+    const r = await fetch(url);
+    const d = await r.json();
+    if (d.daily) {
+      d.daily.time.forEach((dt, i) => {
+        if (d.daily.temperature_2m_max[i] != null)
+          result[dt] = [Math.round(d.daily.temperature_2m_max[i]), Math.round(d.daily.temperature_2m_min[i])];
+      });
+    }
+  } catch(e) { console.warn('Forecast error', city.name, e); }
+
+  return { key, data: result };
+}
+
+async function fetch10yrNormals(city) {
+  const key = `${city.name}_${city.state}`;
+  const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${city.lat}&longitude=${city.lon}&start_date=2015-01-01&end_date=2024-12-31&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=auto`;
+  try {
+    const r = await fetch(url);
+    const d = await r.json();
+    const mh = Array.from({length:12}, ()=>[]);
+    const ml = Array.from({length:12}, ()=>[]);
+    d.daily.time.forEach((dt, i) => {
+      const m = parseInt(dt.slice(5,7)) - 1;
+      if (d.daily.temperature_2m_max[i] != null) {
+        mh[m].push(d.daily.temperature_2m_max[i]);
+        ml[m].push(d.daily.temperature_2m_min[i]);
+      }
+    });
+    return { key, data: mh.map((h,m) => [
+      h.length ? Math.round(h.reduce((a,b)=>a+b)/h.length) : null,
+      ml[m].length ? Math.round(ml[m].reduce((a,b)=>a+b)/ml[m].length) : null
+    ])};
+  } catch(e) {
+    console.warn('10yr error', city.name, e);
+    return { key, data: null };
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// LOAD DATA
+// ══════════════════════════════════════════════════════════════
+async function loadData() {
+  const btn = document.getElementById('refreshBtn');
+  const spinner = document.getElementById('spinner');
+  const msg = document.getElementById('statusMsg');
+
+  btn.disabled = true;
+  spinner.classList.add('active');
+
+  // Check localStorage for 10-yr normals cache
+  const cached10 = localStorage.getItem('normals10yr');
+  const cacheAge = localStorage.getItem('normals10yr_date');
+  const today    = localToday();
+
+  let need10yr = !cached10 || cacheAge !== today.slice(0,7); // refresh monthly
+
+  if (cached10 && !need10yr) {
+    normals10 = JSON.parse(cached10);
+    msg.textContent = 'Fetching weather data…';
+  } else {
+    msg.textContent = 'First load: fetching 10-yr historical normals (one-time, ~1 min)…';
+  }
+
+  // Fetch weather for all cities in parallel
+  msg.textContent = 'Fetching weather data…';
+  const weatherResults = await Promise.all(CITIES.map(c => fetchWeather(c)));
+  weatherData = {};
+  weatherResults.forEach(({key, data}) => { weatherData[key] = data; });
+
+  // Fetch 10-yr normals if needed (rate-limit friendly: sequential with delay)
+  if (need10yr) {
+    msg.textContent = 'Fetching 10-yr historical normals… (first run only, please wait)';
+    const norm10results = [];
+    for (const city of CITIES) {
+      const result = await fetch10yrNormals(city);
+      norm10results.push(result);
+      await new Promise(r => setTimeout(r, 2000)); // 2s delay to avoid 429
+    }
+    normals10 = {};
+    norm10results.forEach(({key, data}) => { if (data) normals10[key] = data; });
+    localStorage.setItem('normals10yr', JSON.stringify(normals10));
+    localStorage.setItem('normals10yr_date', today.slice(0,7));
+  }
+
+  lastRefresh = new Date();
+  btn.disabled  = false;
+  spinner.classList.remove('active');
+  msg.textContent = `Refreshed: ${lastRefresh.toLocaleString('en-US', {weekday:'long', month:'long', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit'})}`;
+
+  renderTable();
+}
+
+// ══════════════════════════════════════════════════════════════
+// RENDER TABLE
+// ══════════════════════════════════════════════════════════════
+function renderTable() {
+  const { today, dates } = getDateRange();
+  const table = document.getElementById('mainTable');
+  table.innerHTML = '';
+
+  const todayIdx = dates.indexOf(today);
+
+  // ── Period label row ──
+  const pRow = table.insertRow();
+  pRow.className = 'period-row';
+  let td = pRow.insertCell(); td.colSpan = 1; // city col
+  td = pRow.insertCell(); td.className = 'lbl-past'; td.colSpan = 7; td.textContent = '◄  ACTUAL (Past 7 Days)';
+  td = pRow.insertCell(); td.className = 'lbl-future'; td.style.color = '#e87820'; td.textContent = 'TODAY';
+  td = pRow.insertCell(); td.className = 'lbl-future'; td.colSpan = 10; td.textContent = 'FORECAST (Next 10 Days)  ►';
+  td = pRow.insertCell(); // divider
+  td = pRow.insertCell(); td.className = 'lbl-norm'; td.textContent = '30-yr';
+  td = pRow.insertCell(); td.className = 'lbl-norm'; td.textContent = '10-yr';
+
+  // ── Date header row ──
+  const dateRow = document.createElement('tr');
+  dateRow.className = 'date-row';
+  let th = document.createElement('th');
+  th.className = 'city-hdr'; th.textContent = 'City';
+  dateRow.appendChild(th);
+
+  dates.forEach((dt, i) => {
+    th = document.createElement('th');
+    th.textContent = fmtDate(dt);
+    th.className = dt === today ? 'today-hdr' : (dt < today ? 'past-hdr' : 'future-hdr');
+    if (dt === today) th.style.borderLeft = th.style.borderRight = '2px solid #e87820';
+    dateRow.appendChild(th);
+  });
+
+  // divider
+  th = document.createElement('th'); th.className = 'divider-col'; dateRow.appendChild(th);
+  th = document.createElement('th'); th.className = 'norm-hdr'; th.textContent = '30-yr Norm'; dateRow.appendChild(th);
+  th = document.createElement('th'); th.className = 'norm-hdr'; th.textContent = '10-yr Norm'; dateRow.appendChild(th);
+  table.appendChild(dateRow);
+
+  // ── Day-of-week header row ──
+  const dayRow = document.createElement('tr');
+  dayRow.className = 'day-row';
+  th = document.createElement('th'); th.className = 'city-hdr'; dayRow.appendChild(th);
+  dates.forEach(dt => {
+    th = document.createElement('th');
+    th.textContent = fmtDay(dt);
+    th.className = dt === today ? 'today-hdr' : (dt < today ? 'past-hdr' : 'future-hdr');
+    th.style.fontSize = '10px';
+    if (dt === today) th.style.borderLeft = th.style.borderRight = '2px solid #e87820';
+    dayRow.appendChild(th);
+  });
+  th = document.createElement('th'); th.className = 'divider-col'; dayRow.appendChild(th);
+  th = document.createElement('th'); th.className = 'norm-hdr'; dayRow.appendChild(th);
+  th = document.createElement('th'); th.className = 'norm-hdr'; dayRow.appendChild(th);
+  table.appendChild(dayRow);
+
+  // ── City rows ──
+  CITIES.forEach((city, ci) => {
+    const key   = `${city.name}_${city.state}`;
+    const cData = weatherData[key] || {};
+    const n30   = NOAA[key]       || Array(12).fill([null,null]);
+    const n10   = normals10[key]  || null;
+
+    const row = table.insertRow();
+
+    // City name cell
+    const cityTd = row.insertCell();
+    cityTd.className = 'city-cell';
+    cityTd.innerHTML = `${city.name}, ${city.state} <span class="market">${city.market}</span>`;
+
+    // Temperature cells
+    dates.forEach(dt => {
+      const cell   = row.insertCell();
+      const temps  = cData[dt];
+      const mIdx   = getMonth(dt);
+      const isToday = dt === today;
+
+      if (!temps) {
+        cell.className = 'temp-cell empty' + (isToday ? ' today-cell' : '');
+        cell.textContent = '—';
+        return;
+      }
+
+      const [hi, lo] = temps;
+      const norms = baseline === '10yr' ? n10 : n30;
+      const normH = norms ? norms[mIdx][0] : null;
+      const dev   = normH != null ? hi - normH : null;
+
+      cell.className = 'temp-cell' + (isToday ? ' today-cell' : '');
+      cell.textContent = `${hi}/${lo}`;
+
+      if (dev != null) {
+        const { bg, fg } = devColor(dev);
+        cell.style.background = bg;
+        cell.style.color      = fg;
+      } else {
+        cell.style.background = '#243344';
+        cell.style.color      = '#e8f0f7';
+      }
+
+      if (isToday) {
+        cell.style.fontWeight = '700';
+        cell.style.borderLeft  = '2px solid #e87820';
+        cell.style.borderRight = '2px solid #e87820';
+      }
+
+      // Tooltip
+      const n30h = n30[mIdx][0], n30l = n30[mIdx][1];
+      const n10h = n10 ? n10[mIdx][0] : null;
+      const dev30 = n30h != null ? hi - n30h : null;
+      const dev10 = n10h != null ? hi - n10h : null;
+      cell.addEventListener('mouseenter', (e) => showTooltip(e, city, dt, hi, lo, n30h, n30l, n10h, dev30, dev10));
+      cell.addEventListener('mousemove',  moveTooltip);
+      cell.addEventListener('mouseleave', hideTooltip);
+    });
+
+    // Divider
+    const divCell = row.insertCell();
+    divCell.className = 'divider-col';
+
+    // 30-yr norm
+    const m = getMonth(today);
+    const norm30cell = row.insertCell();
+    norm30cell.className = 'norm-cell';
+    norm30cell.textContent = n30[m][0] != null ? `${n30[m][0]}/${n30[m][1]}` : '—';
+
+    // 10-yr norm
+    const norm10cell = row.insertCell();
+    norm10cell.className = 'norm-cell';
+    norm10cell.textContent = n10 && n10[m][0] != null ? `${n10[m][0]}/${n10[m][1]}` : (lastRefresh ? '—' : '…');
+    if (!n10) norm10cell.style.color = '#4a7a6a';
+  });
+
+  // ── Price placeholder row ──
+  const pr = table.insertRow();
+  pr.className = 'price-row';
+  const ph = pr.insertCell();
+  ph.textContent = 'CAISO Day-Ahead LMP ($/MWh) — Phase 2';
+  for (let i = 0; i < dates.length + 3; i++) {
+    const c = pr.insertCell();
+    c.textContent = '—';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// TOOLTIP
+// ══════════════════════════════════════════════════════════════
+function showTooltip(e, city, dt, hi, lo, n30h, n30l, n10h, dev30, dev10) {
+  const tip = document.getElementById('tooltip');
+  const sign = v => v > 0 ? `+${v}` : `${v}`;
+  tip.innerHTML = `
+    <strong>${city.name}, ${city.state}</strong> &nbsp;·&nbsp; ${fmtDay(dt)} ${fmtDate(dt)}<br>
+    Temp: <strong>${hi}°F high / ${lo}°F low</strong><br>
+    30-yr Normal: ${n30h != null ? `${n30h}/${n30l}  (dev: <strong>${sign(dev30)}°F</strong>)` : '—'}<br>
+    10-yr Normal: ${n10h != null ? `${n10h}  (dev: <strong>${sign(dev10)}°F</strong>)` : 'loading…'}
+  `;
+  tip.style.display = 'block';
+  moveTooltip(e);
+}
+function moveTooltip(e) {
+  const tip = document.getElementById('tooltip');
+  const x = e.clientX + 14, y = e.clientY + 14;
+  tip.style.left = Math.min(x, window.innerWidth - 260) + 'px';
+  tip.style.top  = Math.min(y, window.innerHeight - 100) + 'px';
+}
+function hideTooltip() {
+  document.getElementById('tooltip').style.display = 'none';
+}
+
+// ══════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════
+loadData();
+</script>
+</body>
+</html>
